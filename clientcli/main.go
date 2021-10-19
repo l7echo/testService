@@ -58,10 +58,13 @@ func getInputParams(params *restAction) error {
 	for i, v := range actionFromInput {
 		if v == true {
 			if selectedAction != "" {
-				return errors.New("you have an error in last param! Please, select ONE action")
+				return errors.New("you have an error in last param! Please, select ONE action\n")
 			}
 			selectedAction = i
 		}
+	}
+	if selectedAction == "" {
+		return errors.New("you must set last param\n")
 	}
 
 	params.host = *host
