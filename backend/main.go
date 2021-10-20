@@ -14,25 +14,44 @@ type Record struct {
 
 var dbContent []Record
 
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-type", "application/json")
+func getHandlerById(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	for _, item := range dbContent {
-
-		// get by id
 		if item.Id == vars["id"] {
 			json.NewEncoder(w).Encode(item)
 			return
 		}
+	}
+	json.NewEncoder(w).Encode(&Record{})
+}
 
-		// get by value
+func getHandlerByValue(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	for _, item := range dbContent {
 		if item.Value == vars["value"] {
 			json.NewEncoder(w).Encode(item)
 			return
 		}
 	}
+	json.NewEncoder(w).Encode(&Record{})
+}
 
-	// get-all case
+func getHandlerByIdAndValue(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	for _, item := range dbContent {
+		if item.Id == vars["id"] && item.Value == vars["value"] {
+			json.NewEncoder(w).Encode(item)
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(&Record{})
+}
+
+func getHandlerAll(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(dbContent)
 }
 
@@ -42,9 +61,10 @@ func main() {
 	dbContent = append(dbContent, Record{Id: "1", Value: "value1"})
 	dbContent = append(dbContent, Record{Id: "2", Value: "value2"})
 
-	r.HandleFunc("/get/id={id}", getHandler).Methods("GET")
-	r.HandleFunc("/get/value={value}", getHandler).Methods("GET")
-	r.HandleFunc("/get-all", getHandler).Methods("GET")
+	r.HandleFunc("/get/id={id}", getHandlerById).Methods("GET")
+	r.HandleFunc("/get/value={value}", getHandlerByValue).Methods("GET")
+	r.HandleFunc("/get/{id}/{value}", getHandlerByIdAndValue).Methods("GET")
+	r.HandleFunc("/get-all", getHandlerAll).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":19300", r))
 }
