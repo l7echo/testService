@@ -42,7 +42,7 @@ var restActionsMap = map[string]interface{}{
 // let's parse incoming parameters
 // then init client data
 // and call needed function
-// we will detect needed function by name from input params
+// we will detect & call needed function by name from input params
 
 func main() {
 	var restParams restAction
@@ -150,7 +150,7 @@ func getInputParams(params *restAction) error {
 
 func (client *Client) add(restParam *restAction) ([]Record, error) {
 	if restParam.id == "" || restParam.value == "" {
-		err := errors.New("get: you need to set ID and VALUE\n")
+		err := errors.New("add: you need to set ID and VALUE\n")
 		return nil, err
 	}
 
@@ -234,6 +234,10 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 }
 
 func (client *Client) remove(restParam *restAction) ([]Record, error) {
+	if restParam.id == "" {
+		err := errors.New("remove: you need to set ID\n")
+		return nil, err
+	}
 	return nil, nil
 }
 
