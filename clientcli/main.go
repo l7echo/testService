@@ -10,6 +10,29 @@ import (
 	"reflect"
 )
 
+type restAction struct {
+	host       string
+	port       string
+	id         string
+	value      string
+	actionName string
+}
+
+type Client struct {
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+type Record struct {
+	Id    string `json:"id"`
+	Value string `json:"value"`
+}
+
+var restActionsMap = map[string]interface{}{
+	"get":     (*Client).get,
+	"get-all": (*Client).getAll,
+}
+
 func main() {
 	var restParams restAction
 	err := getInputParams(&restParams)
@@ -41,14 +64,6 @@ func main() {
 
 //---------------------------------------------------------
 // input params handler
-
-type restAction struct {
-	host       string
-	port       string
-	id         string
-	value      string
-	actionName string
-}
 
 func getInputParams(params *restAction) error {
 
@@ -117,21 +132,6 @@ func getInputParams(params *restAction) error {
 //---------------------------------------------------------
 // client rest api
 
-type Client struct {
-	BaseURL    string
-	HTTPClient *http.Client
-}
-
-type Record struct {
-	Id    string `json:"id"`
-	Value string `json:"value"`
-}
-
-var restActionsMap = map[string]interface{}{
-	"get":     (*Client).get,
-	"get-all": (*Client).getAll,
-}
-
 func (client *Client) get(restParam *restAction) ([]Record, error) {
 	var req *http.Request
 	var err error
@@ -167,16 +167,9 @@ func (client *Client) get(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	res, err := client.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
+	res, err := client.sendRequest(req)
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("check backend, status code: %d", res.StatusCode)
-	}
 	var resList []Record
 	var data Record
 	err = json.NewDecoder(res.Body).Decode(&data)
@@ -193,20 +186,26 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	res, err := client.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
+	res, err := client.sendRequest(req)
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("check backend, status code: %d", res.StatusCode)
-	}
 	var resList []Record
 	err = json.NewDecoder(res.Body).Decode(&resList)
 
 	return resList, nil
+}
+
+func (client *Client) sendRequest(request *http.Request) (*http.Response, error) {
+	res, err := client.HTTPClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("check backend, status code: %d", res.StatusCode)
+	}
+
+	return res, nil
 }
 
 // the main idea: we detect needed function by name and call it
