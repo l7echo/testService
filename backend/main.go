@@ -14,57 +14,71 @@ type Record struct {
 
 var dbContent []Record
 
-func getHandlerById(w http.ResponseWriter, r *http.Request) {
+func getById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	for _, item := range dbContent {
 		if item.Id == vars["id"] {
-			json.NewEncoder(w).Encode(item)
+			_ = json.NewEncoder(w).Encode(item)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(&Record{})
+	_ = json.NewEncoder(w).Encode(&Record{})
 }
 
-func getHandlerByValue(w http.ResponseWriter, r *http.Request) {
+func getByValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	for _, item := range dbContent {
 		if item.Value == vars["value"] {
-			json.NewEncoder(w).Encode(item)
+			_ = json.NewEncoder(w).Encode(item)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(&Record{})
+	_ = json.NewEncoder(w).Encode(&Record{})
 }
 
-func getHandlerByIdAndValue(w http.ResponseWriter, r *http.Request) {
+func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	for _, item := range dbContent {
 		if item.Id == vars["id"] && item.Value == vars["value"] {
-			json.NewEncoder(w).Encode(item)
+			_ = json.NewEncoder(w).Encode(item)
 			return
 		}
 	}
-	json.NewEncoder(w).Encode(&Record{})
+	_ = json.NewEncoder(w).Encode(&Record{})
 }
 
-func getHandlerAll(w http.ResponseWriter, r *http.Request) {
+func getAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(dbContent)
+	_ = json.NewEncoder(w).Encode(dbContent)
+}
+
+func addNew(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var record Record
+	_ = json.NewDecoder(r.Body).Decode(&record)
+	dbContent = append(dbContent, record)
+	_ = json.NewEncoder(w).Encode(record)
+}
+
+func deleteById(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func main() {
 	r := mux.NewRouter()
 
-	dbContent = append(dbContent, Record{Id: "1", Value: "value1"})
-	dbContent = append(dbContent, Record{Id: "2", Value: "value2"})
+	dbContent = append(dbContent, Record{Id: "1", Value: "v1"})
+	dbContent = append(dbContent, Record{Id: "2", Value: "v2"})
 
-	r.HandleFunc("/get/id={id}", getHandlerById).Methods("GET")
-	r.HandleFunc("/get/value={value}", getHandlerByValue).Methods("GET")
-	r.HandleFunc("/get/{id}/{value}", getHandlerByIdAndValue).Methods("GET")
-	r.HandleFunc("/get-all", getHandlerAll).Methods("GET")
+	r.HandleFunc("/db/id={id}", getById).Methods("GET")
+	r.HandleFunc("/db/value={value}", getByValue).Methods("GET")
+	r.HandleFunc("/db/{id}/{value}", getByIdAndValue).Methods("GET")
+	r.HandleFunc("/db", getAll).Methods("GET")
+	r.HandleFunc("/db", addNew).Methods("POST")
+	r.HandleFunc("/db/{id}", deleteById).Methods("DELETE")
 
 	log.Fatal(http.ListenAndServe(":19300", r))
 }

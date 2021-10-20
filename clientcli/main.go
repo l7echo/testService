@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -29,6 +31,7 @@ type Record struct {
 }
 
 var restActionsMap = map[string]interface{}{
+	"add":     (*Client).add,
 	"get":     (*Client).get,
 	"get-all": (*Client).getAll,
 }
@@ -38,7 +41,7 @@ func main() {
 	err := getInputParams(&restParams)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error: %s", err)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -49,7 +52,7 @@ func main() {
 
 	reflectiveResult, err := call(restParams.actionName, &client, &restParams)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error: %s", err)
 		os.Exit(1)
 	}
 
@@ -132,6 +135,32 @@ func getInputParams(params *restAction) error {
 //---------------------------------------------------------
 // client rest api
 
+func (client *Client) add(restParam *restAction) ([]Record, error) {
+	if restParam.id == "" || restParam.value == "" {
+		err := errors.New("get: you need to set ID and VALUE\n")
+		return nil, err
+	}
+
+	var record Record
+	record.Id = restParam.id
+	record.Value = restParam.value
+	jsonStr, _ := json.Marshal(record)
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/db", client.BaseURL), bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := client.sendRequest(req)
+	defer res.Body.Close()
+
+	records, err := client.createRecordsList(&res.Body)
+	return records, err
+}
+
 func (client *Client) get(restParam *restAction) ([]Record, error) {
 	var req *http.Request
 	var err error
@@ -144,21 +173,21 @@ func (client *Client) get(restParam *restAction) ([]Record, error) {
 
 	// if ID and VALUE set both
 	if restParam.id != "" && restParam.value != "" {
-		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/%s/%s", client.BaseURL, restParam.id, restParam.value), nil)
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/db/%s/%s", client.BaseURL, restParam.id, restParam.value), nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if restParam.id != "" && restParam.value == "" {
-		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/id=%s", client.BaseURL, restParam.id), nil)
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/db/id=%s", client.BaseURL, restParam.id), nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if restParam.id == "" && restParam.value != "" {
-		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/value=%s", client.BaseURL, restParam.value), nil)
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/db/value=%s", client.BaseURL, restParam.value), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -170,16 +199,12 @@ func (client *Client) get(restParam *restAction) ([]Record, error) {
 	res, err := client.sendRequest(req)
 	defer res.Body.Close()
 
-	var resList []Record
-	var data Record
-	err = json.NewDecoder(res.Body).Decode(&data)
-	resList = append(resList, data)
-
-	return resList, err
+	records, err := client.createRecordsList(&res.Body)
+	return records, err
 }
 
 func (client *Client) getAll(restParam *restAction) ([]Record, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/get-all", client.BaseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/db", client.BaseURL), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +231,16 @@ func (client *Client) sendRequest(request *http.Request) (*http.Response, error)
 	}
 
 	return res, nil
+}
+
+func (client *Client) createRecordsList(data *io.ReadCloser) ([]Record, error) {
+	var resList []Record
+	var jsonData Record
+
+	err := json.NewDecoder(*data).Decode(&jsonData)
+	resList = append(resList, jsonData)
+
+	return resList, err
 }
 
 // the main idea: we detect needed function by name and call it
