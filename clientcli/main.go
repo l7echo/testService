@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
+	"time"
 )
 
 type restAction struct {
@@ -34,7 +36,13 @@ var restActionsMap = map[string]interface{}{
 	"add":     (*Client).add,
 	"get":     (*Client).get,
 	"get-all": (*Client).getAll,
+	"remove":  (*Client).remove,
 }
+
+// let's parse incoming parameters
+// then init client data
+// and call needed function
+// we will detect needed function by name from input params
 
 func main() {
 	var restParams restAction
@@ -49,6 +57,11 @@ func main() {
 	var client Client
 	client.BaseURL = "http://" + restParams.host + ":" + restParams.port
 	client.HTTPClient = http.DefaultClient
+
+	if ok := client.checkServer(&restParams); ok != true {
+		fmt.Printf("Server is not avaible\n")
+		os.Exit(1)
+	}
 
 	reflectiveResult, err := call(restParams.actionName, &client, &restParams)
 	if err != nil {
@@ -220,6 +233,10 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 	return resList, nil
 }
 
+func (client *Client) remove(restParam *restAction) ([]Record, error) {
+	return nil, nil
+}
+
 func (client *Client) sendRequest(request *http.Request) (*http.Response, error) {
 	res, err := client.HTTPClient.Do(request)
 	if err != nil {
@@ -241,6 +258,16 @@ func (client *Client) createRecordsList(data *io.ReadCloser) ([]Record, error) {
 	resList = append(resList, jsonData)
 
 	return resList, err
+}
+
+func (client *Client) checkServer(restParam *restAction) bool {
+	seconds := 5
+	timeOut := time.Duration(seconds) * time.Second
+	_, err := net.DialTimeout("tcp", restParam.host+":"+restParam.port, timeOut)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // the main idea: we detect needed function by name and call it
