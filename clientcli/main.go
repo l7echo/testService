@@ -24,7 +24,6 @@ func main() {
 	client.BaseURL = "http://" + restParams.host + ":" + restParams.port
 	client.HTTPClient = http.DefaultClient
 
-	//var reflectiveResult []reflect.Value
 	reflectiveResult, err := call(restParams.actionName, &client, &restParams)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s", err)
@@ -32,8 +31,12 @@ func main() {
 	}
 
 	result := reflectiveResult[0].Interface().([]Record)
-	fmt.Printf("result: %s\n", result)
 
+	if reflectiveResult[1].Interface() != nil {
+		errRet := reflectiveResult[1].Interface().(error)
+		fmt.Printf("error: %s\n", errRet)
+	}
+	fmt.Printf("result: %s\n", result)
 }
 
 //---------------------------------------------------------
@@ -124,31 +127,65 @@ type Record struct {
 	Value string `json:"value"`
 }
 
-//type RecordsList struct {
-//	Records []Record
-//}
-
 var restActionsMap = map[string]interface{}{
 	"get":     (*Client).get,
 	"get-all": (*Client).getAll,
 }
 
-func (client *Client) get(restParam *restAction) {
+func (client *Client) get(restParam *restAction) ([]Record, error) {
+	var req *http.Request
+	var err error
+
+	// if ID and VALUE unset both
+	if restParam.id == "" && restParam.value == "" {
+		err = errors.New("get: you need to set ID and/or VALUE\n")
+		return nil, err
+	}
+
+	// if ID and VALUE set both
 	if restParam.id != "" && restParam.value != "" {
-		fmt.Printf("You have specifyed ID and VALUE both, this client will use ID in this case\n")
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/%s/%s", client.BaseURL, restParam.id, restParam.value), nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if restParam.id != "" {
-
+	if restParam.id != "" && restParam.value == "" {
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/id=%s", client.BaseURL, restParam.id), nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if restParam.value != "" {
-
+	if restParam.id == "" && restParam.value != "" {
+		req, err = http.NewRequest("GET", fmt.Sprintf("%s/get/value=%s", client.BaseURL, restParam.value), nil)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := client.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("check backend, status code: %d", res.StatusCode)
+	}
+	var resList []Record
+	var data Record
+	err = json.NewDecoder(res.Body).Decode(&data)
+	resList = append(resList, data)
+
+	return resList, err
 }
 
 func (client *Client) getAll(restParam *restAction) ([]Record, error) {
-	//fmt.Printf("Get-all\n")
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/get-all", client.BaseURL), nil)
 	if err != nil {
 		return nil, err
@@ -171,29 +208,6 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 
 	return resList, nil
 }
-
-/*func (client *Client) newRequest(method, path string, body interface{}) (*http.Request, error) {
-
-	var buffer io.ReadWriter
-	if body != nil {
-		buffer = new(bytes.Buffer)
-		err := json.NewEncoder(buffer).Encode(body)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	req, err := http.NewRequest(method, path, body)
-	if err != nil {
-		return nil, err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	req.Header.Set("Accept", "application/json")
-
-
-}*/
 
 // the main idea: we detect needed function by name and call it
 // needed function name set by input argument
