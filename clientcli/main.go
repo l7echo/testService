@@ -238,7 +238,19 @@ func (client *Client) remove(restParam *restAction) ([]Record, error) {
 		err := errors.New("remove: you need to set ID\n")
 		return nil, err
 	}
-	return nil, nil
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/db/%s", client.BaseURL, restParam.id), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	res, err := client.sendRequest(req)
+	defer res.Body.Close()
+
+	records, err := client.createRecordsList(&res.Body)
+	return records, err
 }
 
 func (client *Client) sendRequest(request *http.Request) (*http.Response, error) {
