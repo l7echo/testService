@@ -105,10 +105,15 @@ func getInputParams(params *restAction) error {
 // client rest api
 
 var restActionsMap = map[string]interface{}{
-	"get": get,
+	"get":     get,
+	"get-all": getAll,
 }
 
 func get(restParam *restAction) {
+
+}
+
+func getAll(restParam *restAction) {
 
 }
 
