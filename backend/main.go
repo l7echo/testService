@@ -25,20 +25,25 @@ type DBconfig struct {
 	DbName string `json:"dbname"`
 }
 
-var dbContent []Record
-
 var dbConnPool *sql.DB
 
 func getById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	for _, item := range dbContent {
-		if item.Id == vars["id"] {
-			_ = json.NewEncoder(w).Encode(item)
-			return
-		}
+
+	rows, err := dbConnPool.Query("call searchById(?)", vars["id"]) // call store procedure
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(&Record{})
+
+	dbContentLocal, err := scanDbOutput(rows)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
+	}
+
+	_ = json.NewEncoder(w).Encode(*dbContentLocal)
 }
 
 // we can get a lot of non-unique values from db
@@ -46,73 +51,42 @@ func getByValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 
-	var dbContentLocal []Record
-
 	rows, err := dbConnPool.Query("call searchByValue(?)", vars["value"]) // call store procedure
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
 
-	columns, err := rows.Columns() // columns names
+	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
 
-	values := make([]sql.RawBytes, len(columns))
-	// row.Scan wants []inteface{} as an argument, so we must copy the references into such a slice
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
-	}
-
-	for rows.Next() {
-		// get raw bytes from data
-		err = rows.Scan(scanArgs...)
-		var record Record
-
-		err = rows.Scan(&record.Id, &record.Value)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		// now do save data from sql db to local record var
-		var value string
-		for i, col := range values {
-			if col == nil {
-				value = "NULL"
-			} else {
-				value = string(col)
-			}
-			if columns[i] == "id" {
-				record.Id = value
-			}
-			if columns[i] == "value" {
-				record.Value = value
-			}
-		}
-		dbContentLocal = append(dbContentLocal, record)
-	}
-
-	_ = json.NewEncoder(w).Encode(dbContentLocal)
+	_ = json.NewEncoder(w).Encode(*dbContentLocal)
 }
 
 func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	for _, item := range dbContent {
-		if item.Id == vars["id"] && item.Value == vars["value"] {
-			_ = json.NewEncoder(w).Encode(item)
-			return
-		}
+
+	row, err := dbConnPool.Query("call searchByIdAndValue(?, ?)", vars["id"], vars["value"]) // call store procedure
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(&Record{})
+
+	dbContentLocal, err := scanDbOutput(row)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
+	}
+
+	_ = json.NewEncoder(w).Encode(*dbContentLocal)
 }
 
 func getAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	var dbContentLocal []Record
 
 	rows, err := dbConnPool.Query("call getAll()") // call store procedure
 	if err != nil {
@@ -120,19 +94,13 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	for rows.Next() {
-		var record Record
-
-		err = rows.Scan(&record.Id, &record.Value)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			panic(err.Error())
-		} else {
-			dbContentLocal = append(dbContentLocal, record)
-		}
+	dbContentLocal, err := scanDbOutput(rows)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
 	}
 
-	_ = json.NewEncoder(w).Encode(dbContentLocal)
+	_ = json.NewEncoder(w).Encode(*dbContentLocal)
 }
 
 func addNew(w http.ResponseWriter, r *http.Request) {
@@ -145,20 +113,20 @@ func addNew(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(record)
+	_ = json.NewEncoder(w).Encode(record) // return added record
 }
 
 func deleteById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	for index, item := range dbContent {
-		if item.Id == vars["id"] {
-			dbContent = append(dbContent[:index], dbContent[index+1:]...)
-			_ = json.NewEncoder(w).Encode(item)
-			return
-		}
+
+	_, err := dbConnPool.Query("call deleteById(?)", vars["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(&Record{})
+
+	_ = json.NewEncoder(w).Encode(&Record{}) // return empty record
 }
 
 func openDbPool(connStr string) (*sql.DB, error) {
@@ -190,6 +158,26 @@ func readDBParams() (*DBconfig, error) {
 	return &data, nil
 }
 
+func scanDbOutput(rows *sql.Rows) (*[]Record, error) {
+	var record Record
+	var dbContentLocal []Record
+
+	for rows.Next() {
+		err := rows.Scan(&record.Id, &record.Value)
+		if err != nil {
+			return nil, err
+		} else {
+			if record.Id == "" && record.Value == "" {
+				dbContentLocal = append(dbContentLocal, Record{})
+			} else {
+				dbContentLocal = append(dbContentLocal, record)
+			}
+		}
+	}
+
+	return &dbContentLocal, nil
+}
+
 func main() {
 	// read db config & open db pool connection
 	dbConfig, err := readDBParams()
@@ -204,9 +192,6 @@ func main() {
 	defer dbConnPool.Close()
 
 	r := mux.NewRouter()
-
-	dbContent = append(dbContent, Record{Id: "1", Value: "v1"})
-	dbContent = append(dbContent, Record{Id: "2", Value: "v2"})
 
 	r.HandleFunc("/db/id={id}", getById).Methods("GET")
 	r.HandleFunc("/db/value={value}", getByValue).Methods("GET")
