@@ -1,0 +1,7 @@
+backend:
+  image: backend
+  container_name: testBackend
+  restart: always
+  ports:
+    - "19300:19300"
+  command: [/backend_wsl_linux, /dbconfig.json]
