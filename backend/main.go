@@ -3,12 +3,14 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -143,7 +145,7 @@ func openDbPool(connStr string) (*sql.DB, error) {
 }
 
 func readDBParams() (*DBconfig, error) {
-	file, err := ioutil.ReadFile("C:\\Projects\\go\\src\\testService\\backend\\dbconfig.json")
+	file, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +181,9 @@ func scanDbOutput(rows *sql.Rows) (*[]Record, error) {
 }
 
 func main() {
+	if len(os.Args) != 2 {
+		panic(errors.New("you must set json with DB connection parameters as argument\n"))
+	}
 	// read db config & open db pool connection
 	dbConfig, err := readDBParams()
 	if err != nil {
