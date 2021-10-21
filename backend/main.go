@@ -6,6 +6,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -16,7 +17,17 @@ type Record struct {
 	Value string `json:"value"`
 }
 
+type DBconfig struct {
+	User   string `json:"user"`
+	Pass   string `json:"pass"`
+	Host   string `json:"host"`
+	Port   string `json:"port"`
+	DbName string `json:"dbname"`
+}
+
 var dbContent []Record
+
+var dbConnPool *sql.DB
 
 func getById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -56,7 +67,57 @@ func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
 
 func getAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(dbContent)
+
+	var dbContentLocal []Record
+	var record Record
+
+	rows, err := dbConnPool.Query("select * from content")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	columns, err := rows.Columns() // columns names
+	if err != nil {
+		panic(err.Error())
+	}
+
+	values := make([]sql.RawBytes, len(columns))
+
+	// row.Scan wants []inteface{} as an argument, so we must copy the references into such a slice
+	scanArgs := make([]interface{}, len(values))
+	for i := range values {
+		scanArgs[i] = &values[i]
+	}
+
+	for rows.Next() {
+		// get raw bytes from data
+		err = rows.Scan(scanArgs...)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		// now do save data from sql db to local record var
+		var value string
+		for i, col := range values {
+			if col == nil {
+				value = "NULL"
+			} else {
+				value = string(col)
+			}
+			if columns[i] == "id" {
+				record.Id = value
+			}
+			if columns[i] == "value" {
+				record.Value = value
+			}
+		}
+		dbContentLocal = append(dbContentLocal, record)
+	}
+	if err = rows.Err(); err != nil {
+		panic(err.Error())
+	}
+
+	_ = json.NewEncoder(w).Encode(dbContentLocal)
 }
 
 func addNew(w http.ResponseWriter, r *http.Request) {
@@ -80,68 +141,47 @@ func deleteById(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(&Record{})
 }
 
-func main() {
-
-	// open db connection
-	db, err := sql.Open("mysql", "root:pa55w0rd@tcp(localhost:3306)/test_db")
+func openDbPool(connStr string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", connStr)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	db.SetConnMaxLifetime(time.Minute * 3)
+	// let's configure our pool
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(10)
-	defer db.Close()
+	db.SetConnMaxLifetime(time.Minute * 3)
+	db.SetConnMaxIdleTime(time.Minute * 3)
+	return db, nil
+}
 
-	//err = db.Ping()
-	//if err != nil {
-	//	panic(err.Error())
-	//}
+func readDBParams() (*DBconfig, error) {
+	file, err := ioutil.ReadFile("./dbconfig.json")
+	if err != nil {
+		return nil, err
+	}
 
-	// exec query
-	rows, err := db.Query("select * from content")
+	data := DBconfig{}
+
+	err = json.Unmarshal([]byte(file), &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &data, nil
+}
+
+func main() {
+	// read db config & open db pool connection
+	dbConfig, err := readDBParams()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// get column names
-	columns, err := rows.Columns()
+	dbConnPool, err = openDbPool(fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbConfig.User, dbConfig.Pass, dbConfig.Host, dbConfig.Port, dbConfig.DbName))
 	if err != nil {
 		panic(err.Error())
 	}
-
-	//make slice for the values
-	values := make([]sql.RawBytes, len(columns))
-
-	// row.Scan wants []inteface{} as an argument, so we must copy the references into such a slice
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
-	}
-
-	// fetch rows
-	for rows.Next() {
-		// get raw bytes from data
-		err = rows.Scan(scanArgs...)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		// now do smth with data
-		// print, for example
-		var value string
-		for i, col := range values {
-			if col == nil {
-				value = "NULL"
-			} else {
-				value = string(col)
-			}
-			fmt.Println(columns[i], ": ", value)
-		}
-		fmt.Println("--------------------------------")
-	}
-	if err = rows.Err(); err != nil {
-		panic(err.Error())
-	}
+	defer dbConnPool.Close()
 
 	r := mux.NewRouter()
 

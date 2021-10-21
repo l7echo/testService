@@ -1,0 +1,7 @@
+{
+  "user": "root",
+  "pass": "pa55w0rd",
+  "host": "localhost",
+  "port": "3306",
+  "dbname": "test_db"
+}
