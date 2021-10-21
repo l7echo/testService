@@ -69,52 +69,21 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var dbContentLocal []Record
-	var record Record
 
-	rows, err := dbConnPool.Query("select * from content")
+	rows, err := dbConnPool.Query("call getAll()") // call store procedure
 	if err != nil {
 		panic(err.Error())
-	}
-
-	columns, err := rows.Columns() // columns names
-	if err != nil {
-		panic(err.Error())
-	}
-
-	values := make([]sql.RawBytes, len(columns))
-
-	// row.Scan wants []inteface{} as an argument, so we must copy the references into such a slice
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
 	}
 
 	for rows.Next() {
-		// get raw bytes from data
-		err = rows.Scan(scanArgs...)
+		var record Record
+
+		err = rows.Scan(&record.Id, &record.Value)
 		if err != nil {
 			panic(err.Error())
+		} else {
+			dbContentLocal = append(dbContentLocal, record)
 		}
-
-		// now do save data from sql db to local record var
-		var value string
-		for i, col := range values {
-			if col == nil {
-				value = "NULL"
-			} else {
-				value = string(col)
-			}
-			if columns[i] == "id" {
-				record.Id = value
-			}
-			if columns[i] == "value" {
-				record.Value = value
-			}
-		}
-		dbContentLocal = append(dbContentLocal, record)
-	}
-	if err = rows.Err(); err != nil {
-		panic(err.Error())
 	}
 
 	_ = json.NewEncoder(w).Encode(dbContentLocal)
