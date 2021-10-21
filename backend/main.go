@@ -41,16 +41,60 @@ func getById(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(&Record{})
 }
 
+// we can get a lot of non-unique values from db
 func getByValue(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	for _, item := range dbContent {
-		if item.Value == vars["value"] {
-			_ = json.NewEncoder(w).Encode(item)
-			return
-		}
+
+	var dbContentLocal []Record
+
+	rows, err := dbConnPool.Query("call searchByValue(?)", vars["value"]) // call store procedure
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
 	}
-	_ = json.NewEncoder(w).Encode(&Record{})
+
+	columns, err := rows.Columns() // columns names
+	if err != nil {
+		panic(err.Error())
+	}
+
+	values := make([]sql.RawBytes, len(columns))
+	// row.Scan wants []inteface{} as an argument, so we must copy the references into such a slice
+	scanArgs := make([]interface{}, len(values))
+	for i := range values {
+		scanArgs[i] = &values[i]
+	}
+
+	for rows.Next() {
+		// get raw bytes from data
+		err = rows.Scan(scanArgs...)
+		var record Record
+
+		err = rows.Scan(&record.Id, &record.Value)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		// now do save data from sql db to local record var
+		var value string
+		for i, col := range values {
+			if col == nil {
+				value = "NULL"
+			} else {
+				value = string(col)
+			}
+			if columns[i] == "id" {
+				record.Id = value
+			}
+			if columns[i] == "value" {
+				record.Value = value
+			}
+		}
+		dbContentLocal = append(dbContentLocal, record)
+	}
+
+	_ = json.NewEncoder(w).Encode(dbContentLocal)
 }
 
 func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +116,7 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := dbConnPool.Query("call getAll()") // call store procedure
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
 
@@ -80,6 +125,7 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 
 		err = rows.Scan(&record.Id, &record.Value)
 		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			panic(err.Error())
 		} else {
 			dbContentLocal = append(dbContentLocal, record)
@@ -93,7 +139,12 @@ func addNew(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var record Record
 	_ = json.NewDecoder(r.Body).Decode(&record)
-	dbContent = append(dbContent, record)
+
+	_, err := dbConnPool.Query("call addValue(?, ?)", record.Id, record.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
+	}
 	_ = json.NewEncoder(w).Encode(record)
 }
 
@@ -124,7 +175,7 @@ func openDbPool(connStr string) (*sql.DB, error) {
 }
 
 func readDBParams() (*DBconfig, error) {
-	file, err := ioutil.ReadFile("./dbconfig.json")
+	file, err := ioutil.ReadFile("C:\\Projects\\go\\src\\testService\\backend\\dbconfig.json")
 	if err != nil {
 		return nil, err
 	}

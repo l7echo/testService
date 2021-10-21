@@ -212,8 +212,13 @@ func (client *Client) get(restParam *restAction) ([]Record, error) {
 	res, err := client.sendRequest(req)
 	defer res.Body.Close()
 
-	records, err := client.createRecordsList(&res.Body)
-	return records, err
+	var resList []Record
+	err = json.NewDecoder(res.Body).Decode(&resList)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshall data from server")
+	}
+
+	return resList, nil
 }
 
 func (client *Client) getAll(restParam *restAction) ([]Record, error) {
@@ -229,6 +234,9 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 
 	var resList []Record
 	err = json.NewDecoder(res.Body).Decode(&resList)
+	if err != nil {
+		return nil, fmt.Errorf("could not unmarshall data from server")
+	}
 
 	return resList, nil
 }
