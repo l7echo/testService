@@ -4,4 +4,6 @@ backend:
   restart: always
   ports:
     - "19300:19300"
-  command: [/backend_wsl_linux, /dbconfig.json]
+  command: [/backend_wsl_linux, /config/dbconfig.json]
+  volumes:
+    - /home/pecho/go/bin/config:/config

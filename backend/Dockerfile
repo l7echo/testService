@@ -1,4 +1,4 @@
 FROM scratch
 COPY ./backend_wsl_linux /
-COPY ./dbconfig.json /
-CMD ["/backend_wsl_linux","/dbconfig.json"]
+COPY config/dbconfig.json /config/
+CMD ["/backend_wsl_linux","/config/dbconfig.json"]

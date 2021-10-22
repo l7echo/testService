@@ -38,6 +38,7 @@ func getById(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
+	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
@@ -58,6 +59,7 @@ func getByValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
+	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
@@ -77,6 +79,7 @@ func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
+	defer row.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(row)
 	if err != nil {
@@ -95,6 +98,7 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
+	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
@@ -110,7 +114,12 @@ func addNew(w http.ResponseWriter, r *http.Request) {
 	var record Record
 	_ = json.NewDecoder(r.Body).Decode(&record)
 
-	_, err := dbConnPool.Query("call addValue(?, ?)", record.Id, record.Value)
+	row, err := dbConnPool.Query("call addValue(?, ?)", record.Id, record.Value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
+	}
+	err = row.Close() // return connection to pool
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
@@ -122,12 +131,16 @@ func deleteById(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 
-	_, err := dbConnPool.Query("call deleteById(?)", vars["id"])
+	row, err := dbConnPool.Query("call deleteById(?)", vars["id"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		panic(err.Error())
 	}
-
+	err = row.Close() // return connection to pool
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		panic(err.Error())
+	}
 	_ = json.NewEncoder(w).Encode(&Record{}) // return empty record
 }
 
