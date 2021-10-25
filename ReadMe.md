@@ -31,4 +31,4 @@ JB GoLand (on Windows) + WSL2(Ubuntu 18.04)
 
 ### Пример работы CLI клиента с контейнерами:
 
-![test run](./scrin.png)
+![test run](./scrn1.png)
