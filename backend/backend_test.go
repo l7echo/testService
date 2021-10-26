@@ -39,7 +39,7 @@ func TestDbConnection(t *testing.T) {
 	var needToRestoreArgs bool
 
 	if isSubStr(os.Args[1], "dbconfig.json") == false {
-		t.Log("didn't set \"/home/pecho/go/bin/config/dbconfig.json\" parameter, let's fix it\n")
+		t.Log("didn't set \"./config/dbconfig.json\" parameter, let's fix it\n")
 		os.Args[1] = "./config/dbconfig.json"
 		needToRestoreArgs = true
 	}
@@ -82,19 +82,35 @@ func TestGetRequests(t *testing.T) {
 	}
 	defer dbConnPool.Close()
 
-	req, err := http.NewRequest("GET", "/db/id=1", nil)
-	if err != nil {
-		t.Error(err.Error())
-		t.FailNow()
+	routerVars := []struct {
+		variable   string
+		shouldPass bool
+		f          func(http.ResponseWriter, *http.Request)
+	}{
+		// right data
+		{"/db/id=1", true, getById},
+		{"/db/value=v2", true, getByValue},
+		{"/db/3/v3", true, getByIdAndValue},
+		{"/db", true, getAll},
+		// wrong data
+		{"/bdbdbd", false, getAll},
 	}
 
-	respRecoder := httptest.NewRecorder()
-	handler := http.HandlerFunc(getById)
+	for _, routerVariable := range routerVars {
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s", routerVariable.variable), nil)
+		if err != nil {
+			t.Error(err.Error())
+			t.FailNow()
+		}
 
-	handler.ServeHTTP(respRecoder, req)
-	if status := respRecoder.Code; status != http.StatusOK {
-		t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
-		t.Fail()
+		respRecoder := httptest.NewRecorder()
+		handler := http.HandlerFunc(routerVariable.f)
+
+		handler.ServeHTTP(respRecoder, req)
+		if status := respRecoder.Code; status != http.StatusOK {
+			t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
+			t.FailNow()
+		}
 	}
 
 	if needToRestoreArgs {
@@ -103,5 +119,9 @@ func TestGetRequests(t *testing.T) {
 }
 
 func TestPostRequest(t *testing.T) {
+
+}
+
+func TestDeleteRequest(t *testing.T) {
 
 }
