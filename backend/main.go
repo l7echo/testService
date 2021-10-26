@@ -36,14 +36,16 @@ func getById(w http.ResponseWriter, r *http.Request) {
 	rows, err := dbConnPool.Query("call searchById(?)", vars["id"]) // call store procedure
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 
 	_ = json.NewEncoder(w).Encode(*dbContentLocal)
@@ -57,14 +59,16 @@ func getByValue(w http.ResponseWriter, r *http.Request) {
 	rows, err := dbConnPool.Query("call searchByValue(?)", vars["value"]) // call store procedure
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 
 	_ = json.NewEncoder(w).Encode(*dbContentLocal)
@@ -77,14 +81,16 @@ func getByIdAndValue(w http.ResponseWriter, r *http.Request) {
 	row, err := dbConnPool.Query("call searchByIdAndValue(?, ?)", vars["id"], vars["value"]) // call store procedure
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	defer row.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(row)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 
 	_ = json.NewEncoder(w).Encode(*dbContentLocal)
@@ -96,14 +102,16 @@ func getAll(w http.ResponseWriter, r *http.Request) {
 	rows, err := dbConnPool.Query("call getAll()") // call store procedure
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	defer rows.Close() // return connection to pool
 
 	dbContentLocal, err := scanDbOutput(rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 
 	_ = json.NewEncoder(w).Encode(*dbContentLocal)
@@ -117,12 +125,14 @@ func addNew(w http.ResponseWriter, r *http.Request) {
 	row, err := dbConnPool.Query("call addValue(?, ?)", record.Id, record.Value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	err = row.Close() // return connection to pool
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	_ = json.NewEncoder(w).Encode(record) // return added record
 }
@@ -134,12 +144,14 @@ func deleteById(w http.ResponseWriter, r *http.Request) {
 	row, err := dbConnPool.Query("call deleteById(?)", vars["id"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	err = row.Close() // return connection to pool
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		panic(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	_ = json.NewEncoder(w).Encode(&Record{}) // return empty record
 }

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -69,13 +70,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	result := reflectiveResult[0].Interface().([]Record)
-
 	if reflectiveResult[1].Interface() != nil {
 		errRet := reflectiveResult[1].Interface().(error)
 		fmt.Printf("error: %s\n", errRet)
+	} else {
+		result := reflectiveResult[0].Interface().([]Record)
+		fmt.Printf("result: %s\n", result)
 	}
-	fmt.Printf("result: %s\n", result)
 }
 
 //---------------------------------------------------------
@@ -168,6 +169,9 @@ func (client *Client) add(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Accept", "application/json")
 
 	res, err := client.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	records, err := client.createRecordsList(&res.Body)
@@ -210,6 +214,9 @@ func (client *Client) get(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Accept", "application/json")
 
 	res, err := client.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	var resList []Record
@@ -230,6 +237,9 @@ func (client *Client) getAll(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Accept", "application/json")
 
 	res, err := client.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	var resList []Record
@@ -255,6 +265,9 @@ func (client *Client) remove(restParam *restAction) ([]Record, error) {
 	req.Header.Set("Accept", "application/json")
 
 	res, err := client.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	records, err := client.createRecordsList(&res.Body)
@@ -268,7 +281,12 @@ func (client *Client) sendRequest(request *http.Request) (*http.Response, error)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("check backend, status code: %d", res.StatusCode)
+		serverMsg, err := io.ReadAll(res.Body)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		_ = res.Body.Close()
+		return nil, fmt.Errorf("check backend, status code: %d, error: %s", res.StatusCode, serverMsg)
 	}
 
 	return res, nil
