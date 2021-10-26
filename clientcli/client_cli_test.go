@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 	"os"
 	"strings"
@@ -269,6 +270,23 @@ func TestGetBadInputParams(t *testing.T) {
 		t.Fail()
 		return
 	}
+
+	// restore
+	os.Args = os.Args[:0]
+	copy(os.Args, originArgs)
+}
+
+func TestCallingMain(tester *testing.T) {
+	originArgs := make([]string, len(os.Args))
+	copy(originArgs, os.Args)
+
+	os.Args = os.Args[:1]
+
+	// set wrong input
+	os.Args = append(os.Args, "--get-all")
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError) // we need to clear flag after TestGetBadInputParams
+
+	main()
 
 	// restore
 	os.Args = os.Args[:0]
