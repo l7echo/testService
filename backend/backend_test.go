@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -131,9 +133,76 @@ func TestGetRequests(t *testing.T) {
 }
 
 func TestPostRequest(t *testing.T) {
+	var originArg1 string
+	originArg1 = os.Args[1]
+	var needToRestoreArgs bool
 
+	if isSubStr(os.Args[1], "dbconfig.json") == false {
+		t.Log("didn't set \"./config/dbconfig.json\" parameter, let's fix it\n")
+		os.Args[1] = "./config/dbconfig.json"
+		needToRestoreArgs = true
+	}
+
+	dbConnPool, err := openDB()
+
+	if err != nil {
+		t.Error(err.Error())
+		t.FailNow()
+	}
+	defer dbConnPool.Close()
+
+	records := []struct {
+		record Record
+		status int
+	}{
+		{Record{Id: "test_id", Value: "test_value"}, http.StatusOK},
+		{Record{Id: "test_id", Value: "test_value"}, http.StatusInternalServerError},
+	}
+
+	for _, item := range records {
+		jsonStr, _ := json.Marshal(item.record)
+
+		req, err := http.NewRequest("POST", "/db", bytes.NewBuffer(jsonStr))
+		if err != nil {
+			t.Error(err.Error())
+			t.FailNow()
+		}
+
+		respRecoder := httptest.NewRecorder()
+		handler := http.HandlerFunc(addNew)
+		handler.ServeHTTP(respRecoder, req)
+
+		if status := respRecoder.Code; status != item.status {
+			t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
+			t.FailNow()
+		}
+	}
+
+	if needToRestoreArgs {
+		os.Args[1] = originArg1
+	}
 }
 
 func TestDeleteRequest(t *testing.T) {
+	var originArg1 string
+	originArg1 = os.Args[1]
+	var needToRestoreArgs bool
 
+	if isSubStr(os.Args[1], "dbconfig.json") == false {
+		t.Log("didn't set \"./config/dbconfig.json\" parameter, let's fix it\n")
+		os.Args[1] = "./config/dbconfig.json"
+		needToRestoreArgs = true
+	}
+
+	dbConnPool, err := openDB()
+
+	if err != nil {
+		t.Error(err.Error())
+		t.FailNow()
+	}
+	defer dbConnPool.Close()
+
+	if needToRestoreArgs {
+		os.Args[1] = originArg1
+	}
 }
