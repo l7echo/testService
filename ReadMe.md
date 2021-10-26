@@ -32,3 +32,23 @@ JB GoLand (on Windows) + WSL2(Ubuntu 18.04)
 ### Пример работы CLI клиента с контейнерами:
 
 ![test run](./scrn1.png)
+
+### Покрытие тестами
+
+#### клиент
+
+```
+> go tool cover -func=coverage
+testService/clientcli/client_cli.go:48:         main                    0.0%
+testService/clientcli/client_cli.go:85:         getInputParams          57.9%
+testService/clientcli/client_cli.go:152:        add                     94.4%
+testService/clientcli/client_cli.go:181:        get                     82.1%
+testService/clientcli/client_cli.go:231:        getAll                  78.6%
+testService/clientcli/client_cli.go:254:        remove                  85.7%
+testService/clientcli/client_cli.go:277:        sendRequest             80.0%
+testService/clientcli/client_cli.go:295:        createRecordsList       100.0%
+testService/clientcli/client_cli.go:305:        checkServer             83.3%
+testService/clientcli/client_cli.go:318:        call                    77.8%
+total:                                          (statements)            67.5%
+```
+

@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -244,4 +245,32 @@ func TestRemove(t *testing.T) {
 		t.Error("client.remove(id=nil) failed\n")
 		t.Fail()
 	}
+}
+
+func TestGetBadInputParams(t *testing.T) {
+	var inputParams restAction
+
+	// may be redefinition os.Args is a very bad idea
+	originArgs := make([]string, len(os.Args))
+	copy(originArgs, os.Args)
+
+	os.Args = os.Args[:1]
+
+	// set wrong input
+	os.Args = append(os.Args, "--get")
+	os.Args = append(os.Args, "--add")
+	err := getInputParams(&inputParams) // and now check it
+
+	if err.Error() != "you have an error in params! Please, select ONE action\n" {
+		os.Args = os.Args[:0]
+		copy(os.Args, originArgs)
+
+		t.Error("getInputParams failed with wrong input (with many actions)\n")
+		t.Fail()
+		return
+	}
+
+	// restore
+	os.Args = os.Args[:0]
+	copy(os.Args, originArgs)
 }
