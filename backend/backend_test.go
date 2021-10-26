@@ -159,8 +159,8 @@ func TestPostRequest(t *testing.T) {
 		{Record{Id: "test_id", Value: "test_value"}, http.StatusInternalServerError},
 	}
 
-	for _, item := range records {
-		jsonStr, _ := json.Marshal(item.record)
+	for i := 0; i < len(records); i++ {
+		jsonStr, _ := json.Marshal(records[i].record)
 
 		req, err := http.NewRequest("POST", "/db", bytes.NewBuffer(jsonStr))
 		if err != nil {
@@ -169,11 +169,12 @@ func TestPostRequest(t *testing.T) {
 		}
 
 		respRecoder := httptest.NewRecorder()
-		handler := http.HandlerFunc(addNew)
-		handler.ServeHTTP(respRecoder, req)
+		router := mux.NewRouter()
+		router.HandleFunc("/db", addNew).Methods("POST")
+		router.ServeHTTP(respRecoder, req)
 
-		if status := respRecoder.Code; status != item.status {
-			t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
+		if status := respRecoder.Code; status != records[i].status {
+			t.Errorf("got wrong http status: got %d, want %d", status, records[i].status)
 			t.FailNow()
 		}
 	}
@@ -201,6 +202,35 @@ func TestDeleteRequest(t *testing.T) {
 		t.FailNow()
 	}
 	defer dbConnPool.Close()
+
+	records := []struct {
+		recordId string
+		status   int
+	}{
+		{"test_id", http.StatusOK},
+		//{"test_id", http.StatusInternalServerError},
+	}
+
+	for i := 0; i < len(records); i++ {
+		// let's delete Record{Id: "test_id", Value: "test_value"} from previous test
+		req, err := http.NewRequest("DELETE", fmt.Sprintf("/db/%s", records[i].recordId), nil)
+		if err != nil {
+			t.Error(err.Error())
+			t.FailNow()
+		}
+
+		respRecoder := httptest.NewRecorder()
+
+		// we need to create a router because we need to add our requests into context
+		router := mux.NewRouter()
+		router.HandleFunc("/db/{id}", deleteById).Methods("DELETE")
+		router.ServeHTTP(respRecoder, req)
+
+		if status := respRecoder.Code; status != records[i].status {
+			t.Errorf("got wrong http status: got %d, want %d", status, records[i].status)
+			t.FailNow()
+		}
+	}
 
 	if needToRestoreArgs {
 		os.Args[1] = originArg1

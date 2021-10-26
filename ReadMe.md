@@ -52,3 +52,22 @@ testService/clientcli/client_cli.go:318:        call                    77.8%
 total:                                          (statements)            67.5%
 ```
 
+#### backend
+
+```
+> go tool cover -func=coverage
+testService/backend/backend.go:32:      getById         57.1%
+testService/backend/backend.go:55:      getByValue      57.1%
+testService/backend/backend.go:77:      getByIdAndValue 57.1%
+testService/backend/backend.go:99:      getAll          53.8%
+testService/backend/backend.go:120:     addNew          78.6%
+testService/backend/backend.go:140:     deleteById      53.8%
+testService/backend/backend.go:159:     openDbPool      87.5%
+testService/backend/backend.go:172:     readDBParams    75.0%
+testService/backend/backend.go:188:     scanDbOutput    80.0%
+testService/backend/backend.go:208:     main            0.0%
+total:                                  (statements)    56.0%
+
+```
+
+Не во все `if err != nil {}` удалось "залезть", поэтому покрытие не 100%
