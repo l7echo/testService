@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -104,12 +105,23 @@ func TestGetRequests(t *testing.T) {
 		}
 
 		respRecoder := httptest.NewRecorder()
-		handler := http.HandlerFunc(routerVariable.f)
 
-		handler.ServeHTTP(respRecoder, req)
-		if status := respRecoder.Code; status != http.StatusOK {
-			t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
-			t.FailNow()
+		// we need to create a router because we need to add our requests into context
+		router := mux.NewRouter()
+		router.HandleFunc("/db/id={id}", getById).Methods("GET")
+		router.HandleFunc("/db/value={value}", getByValue).Methods("GET")
+		router.HandleFunc("/db/{id}/{value}", getByIdAndValue).Methods("GET")
+		router.HandleFunc("/db", getAll).Methods("GET")
+		router.ServeHTTP(respRecoder, req)
+
+		if status := respRecoder.Code; status != http.StatusOK && !routerVariable.shouldPass {
+
+			// check if it is a special wrong data
+			// if it is, we passed this test
+			if routerVariable.variable != "/bdbdbd" {
+				t.Errorf("got wrong http status: got %d, want %d", status, http.StatusOK)
+				t.FailNow()
+			}
 		}
 	}
 
