@@ -75,6 +75,14 @@ func TestAdd(t *testing.T) {
 		t.Fail()
 		return
 	}
+
+	testParams.value = ""
+	_, err = client.add(testParams) // and let's check invalid input data
+
+	if err == nil {
+		t.Error("client.add(id=nil) failed\n")
+		t.Fail()
+	}
 }
 
 func isSubStr(str, substr string) bool {
@@ -151,7 +159,7 @@ func TestGet(t *testing.T) {
 
 	testParams.value = "test_value"
 	testParams.id = ""
-	rec, err = client.get(testParams) // here we have only value, so we may get several records
+	rec, err = client.get(testParams) // here we have only a value, so we may get several records
 
 	if err != nil {
 		t.Errorf("client.get(value) failed: %s\n", err)
@@ -175,16 +183,65 @@ func TestGet(t *testing.T) {
 	rec, err = client.get(testParams) // and let's check invalid input data
 
 	if err == nil || rec != nil {
-		t.Error("client.get(nil,nil) failed\n")
+		t.Error("client.get(id=nil, value=nil) failed\n")
 		t.Fail()
-		return
 	}
 }
 
 func TestGetAll(t *testing.T) {
+	testParams, client := createTestData(t)
 
+	var testRecord Record
+	testRecord.Id = testParams.id
+	testRecord.Value = testParams.value
+
+	rec, err := client.getAll(testParams) // here we may get several records
+
+	if err != nil {
+		t.Errorf("client.remove failed, err: %s\n", err.Error())
+		t.Fail()
+		return
+	}
+
+	var isTestPass bool
+	for _, record := range rec {
+		if record == testRecord {
+			isTestPass = true
+		}
+	}
+	if isTestPass == false {
+		t.Error("client.get(value) failed: test data is not in DB return\n")
+		t.Fail()
+	}
 }
 
 func TestRemove(t *testing.T) {
+	testParams, client := createTestData(t)
 
+	rec, err := client.remove(testParams)
+
+	if err != nil {
+		t.Errorf("client.remove failed, err: %s\n", err.Error())
+		t.Fail()
+		return
+	}
+	if len(rec) != 1 {
+		t.Error("client.remove failed\n")
+		t.Fail()
+		return
+	}
+	emptyRecord := Record{Id: "", Value: ""}
+	if rec[0] != emptyRecord {
+		t.Error("client.remove failed\n")
+		t.Fail()
+		return
+	}
+
+	testParams.id = ""
+	rec, err = client.remove(testParams) // and let's check invalid input data
+
+	if err == nil || rec != nil {
+		t.Error("client.remove(id=nil) failed\n")
+		t.Fail()
+	}
 }
