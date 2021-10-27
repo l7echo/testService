@@ -282,7 +282,7 @@ func TestCallingMain(tester *testing.T) {
 
 	os.Args = os.Args[:1]
 
-	// set wrong input
+	// set input
 	os.Args = append(os.Args, "--get-all")
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError) // we need to clear flag after TestGetBadInputParams
 
